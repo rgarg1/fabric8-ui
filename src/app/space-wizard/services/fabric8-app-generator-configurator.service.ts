@@ -302,6 +302,22 @@ export class AppGeneratorConfiguratorService {
         step.title = 'Select dependencies';
         break;
       }
+      case 'launchpad: new starter project': {
+        step.title = 'Choose project type';
+        break;
+      }
+      case 'spring boot: setup': {
+        step.title = 'Select dependencies';
+        break;
+      }
+      case 'wildfly swarm: setup': {
+        step.title = 'Select dependencies';
+        break;
+      }
+      case 'vert.x: setup': {
+        step.title = 'Select dependencies';
+        break;
+      }
 
 
       case 'launchpad: new project': {

@@ -16,7 +16,7 @@ import { appInfos } from 'fabric8-runtime-console/src/app/kubernetes/model/build
 @Component({
   selector: 'fabric8-environment-widget',
   templateUrl: './environment-widget.component.html',
-  styleUrls: ['./environment-widget.component.scss']
+  styleUrls: ['./environment-widget.component.less']
 })
 export class EnvironmentWidgetComponent implements OnInit, OnDestroy {
 
