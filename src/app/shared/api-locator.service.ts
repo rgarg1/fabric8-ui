@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import {Fabric8UIConfig} from "./config/fabric8-ui-config";
 
 @Injectable()
 export class ApiLocatorService {
@@ -8,6 +9,7 @@ export class ApiLocatorService {
       ['wit', 'FABRIC8_WIT_API_URL'],
       ['recommender', 'FABRIC8_RECOMMENDER_API_URL'],
       ['sso', 'FABRIC8_SSO_API_URL'],
+      ['realm', 'FABRIC8_REALM'],
       ['forge', 'FABRIC8_FORGE_API_URL']
 
     ]
@@ -26,27 +28,30 @@ export class ApiLocatorService {
 
   private envVars = new Map<string, string>();
 
-  constructor() {
+  constructor(private config: Fabric8UIConfig) {
     this.DEFAULT_API_ENV_VAR_NAMES.forEach((value, key) => {
       this.loadEnvVar(key);
     });
   }
 
+  get realm(): string {
+    return this.envVars.get('realm');
+  }
+
   get witApiUrl(): string {
-    return this.buildApiUrl('wit');
+    return this.config.witApiUrl || this.buildApiUrl('wit');
   }
 
   get forgeApiUrl(): string {
-    let tmp=this.buildApiUrl('forge');
-    return tmp
+    return this.config.forgeApiUrl || this.buildApiUrl('forge')
   }
 
   get ssoApiUrl(): string {
-    return this.buildApiUrl('sso');
+    return this.config.ssoApiUrl || this.buildApiUrl('sso');
   }
 
   get recommenderApiUrl(): string {
-    return this.buildApiUrl('recommender');
+    return this.config.recommenderApiUrl || this.buildApiUrl('recommender');
   }
 
   private loadEnvVar(key: string): void {

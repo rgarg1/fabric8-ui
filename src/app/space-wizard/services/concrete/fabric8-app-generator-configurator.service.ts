@@ -4,52 +4,82 @@ import { ContextService } from '../../../shared/context.service';
 import {
   Space,
   Context,
-  Contexts,
-  ContextTypes,
-  SpaceService,
-  SpaceNamePipe
+  SpaceAttributes
 } from 'ngx-fabric8-wit';
 
 import {
-  AppGeneratorService,
-  FieldCollection,
-  FieldWidgetClassification,
   FieldWidgetClassificationOptions,
   IAppGeneratorCommand,
-  IAppGeneratorRequest,
   IAppGeneratorResponse,
   IAppGeneratorPair,
-  IAppGeneratorResponseContext,
-  IAppGeneratorState,
   IField,
   IFieldCollection,
   IFieldChoice
 } from '../contracts/app-generator-service';
 /** dependencies */
 import {
-  IForgeCommandRequest,
-  IForgeCommandResponse,
-  IForgeCommandPipeline,
   IForgeInput,
-  IForgeService,
-  IForgeServiceProvider,
-  IForgeCommandData,
-  IForgeState,
-  IForgeMetadata
+  ForgeCommands
 } from '../forge.service';
 
 import { ILoggerDelegate, LoggerFactory } from '../../common/logger';
 
+
 @Injectable()
-export class AppGeneratorConfigurationService {
+export class AppGeneratorConfiguratorService {
 
   static instanceCount: number = 1;
 
-  public currentSpace: Space;
+  public get currentSpace(): Space {
+    if ( !this._currentSpace ) {
+      this._currentSpace = this.createTransientSpace();
+    }
+    return this._currentSpace;
+  }
+
+  public set currentSpace(value: Space) {
+    this._currentSpace = value;
+  }
+
+  public get newSpace(): Space {
+    if ( !this._newSpace ) {
+      this._newSpace = this.createTransientSpace();
+    }
+    return this._newSpace;
+  }
+  public set newSpace(value: Space) {
+    this._newSpace = value;
+  }
+
+  /**
+   * Helps to specify wizard step names to prevent typos
+   */
+
+  public workflowSteps = {
+    createSpace: 'space-step',
+    forgePanel: 'forge-step',
+    forgeQuickStart: 'forge-quick-start-step',
+    forgeStarter: 'forge-starter-step',
+    forgeImportGit: 'forge-import-git-step'
+  };
+
+  public forgeCommands = {
+    forgeQuickStart: ForgeCommands.forgeQuickStart,
+    forgeStarter: ForgeCommands.forgeStarter,
+    forgeImportGit: ForgeCommands.forgeImportGit
+  };
+
+  private _newSpace: Space;
+  private _currentSpace: Space;
+
+  public resetNewSpace(): Space {
+     this.newSpace = null;
+     return this.newSpace;
+  }
 
   constructor(loggerFactory: LoggerFactory, private context: ContextService) {
     let logger = loggerFactory.createLoggerDelegate(this.constructor.name,
-                                                    AppGeneratorConfigurationService.instanceCount++);
+                                                    AppGeneratorConfiguratorService.instanceCount++);
     if ( logger ) {
       this.log = logger;
     }
@@ -60,6 +90,22 @@ export class AppGeneratorConfigurationService {
         this.log(`the current space is updated to ${this.currentSpace.attributes.name}`);
       }
     });
+  }
+
+  // appends fields that are needed but may only be entered at a later stage in the wizard
+  public appendAppGeneratorRequestMissingFields(command: IAppGeneratorCommand) {
+    if ( command.parameters && command.parameters.data && command.parameters.data.inputs ) {
+        let inputs: Array<IForgeInput> = command.parameters.data.inputs || [];
+
+        let field = inputs.find(i => i.name.toLowerCase() === 'labelspace');
+        if ( !field ) {
+          inputs.push(<IForgeInput>{name: 'labelSpace', value: this.currentSpace.attributes.name});
+        } else {
+          if ( !field.value ) {
+            field.value = this.currentSpace.attributes.name;
+          }
+        }
+    }
 
   }
   public scrubAppGeneratorRequest(command: IAppGeneratorCommand, input: IForgeInput, field: IField) {
@@ -133,17 +179,6 @@ export class AppGeneratorConfigurationService {
           break;
         }
         case 'gitrepository' : {
-          // if( this.currentSpace && (this.currentSpace.attributes.name || '' ).length > 0 ) {
-          //   let spaceName = this.currentSpace.attributes.name;
-          //   field.value = spaceName ;
-          //   let namedField = validationFields.find( f => f.name ==='named');
-          //   // handle the scenario when someone chages the name (that is defaulted to the space name) to something else
-          //   // and the expecation that this defaults to the repo name. Do if that changes then default repo name needs to
-          //   // change too !!
-          //   if( namedField &&  (namedField.value||'').toString() !== spaceName ) {
-          //       field.value= namedField.value
-          //   }
-          // }
           field.display.label = 'GitHub repository name';
           break;
         }
@@ -158,6 +193,9 @@ export class AppGeneratorConfigurationService {
           break;
         }
         case 'pipeline' : {
+          field.display.showLabel = false;
+          field.display.note = null;
+          field.display.inputType = FieldWidgetClassificationOptions.SingleSelectionList;
           this.augmentPipelineChoices(field , context, execution);
           break;
         }
@@ -197,6 +235,35 @@ export class AppGeneratorConfigurationService {
     return response;
   }
 
+  private createTransientSpace(): Space {
+    let space = {} as Space;
+    space.name = '';
+    space.path = '';
+    space.attributes = new SpaceAttributes();
+    space.attributes.name = space.name;
+    space.type = 'spaces';
+    space.privateSpace = false;
+    space.process = { name: '', description: ''};
+    space.relationships = {
+      areas: {
+        links: {
+          related: ''
+        }
+      },
+      iterations: {
+        links: {
+          related: ''
+        }
+      },
+      ['owned-by']: {
+        data: {
+          id: '',
+          type: 'identities'
+        }
+      }
+    };
+    return space;
+  }
 
   private augmentTitle(context: string, execution: IAppGeneratorPair) {
     let response = execution.response;
@@ -220,6 +287,10 @@ export class AppGeneratorConfigurationService {
       }
       case 'io.fabric8.forge.generator.kubernetes.createbuildconfigstep': {
         response.payload.state.title = 'Select the pipeline build options ... ';
+        break;
+      }
+      case 'io.fabric8.forge.generator.github.githubimportpickrepositoriesstep': {
+        response.payload.state.title = 'Select the GitHub repository that you wish to import ...';
         break;
       }
       default: {
@@ -263,32 +334,58 @@ export class AppGeneratorConfigurationService {
 
   private augmentPipelineChoices( field: IField, context: string, execution: IAppGeneratorPair ) {
     // augment display properties
+    let source = field.source();
+    let index: number = 0;
+    let defaultIndex = 0;
     for ( let choice of <Array<IFieldChoice>>field.display.choices ) {
-      choice.default = false;
-      switch (choice.id.toLowerCase()) {
-        case 'canaryrelease': {
-          choice.index = 0;
-          choice.default = true;
-          choice.name = 'Canary Release';
-          choice.description = 'A canary - release continuous delivery pipeline strategy.';
-          break;
+      choice.isDefault = false;
+      choice.hasIcon = false;
+      choice.view = 'pipelineView';
+      let choiceSource = source.valueChoices.find(vc => vc.id === choice.id) || { environments: [], stages: [], color: 'success' , icon: 'fa-check-circle'};
+      let determineColor = (value: string): string => {
+        let found = (value || '').toLowerCase().includes('approve');
+        if (found) {
+          return 'warning';
         }
-        case 'canaryreleaseandstage': {
-          choice.index = 1;
-          choice.name = 'Canary Release and Stage';
-          choice.description = 'A canary - stage - release continuous delivery pipeline strategy.';
-          break;
+        return 'success';
+      };
+      let determineIcon = (value: string): string => {
+        let found = (value || '').toLowerCase().includes('approve');
+        if (found) {
+          return 'fa-pause-circle';
         }
-        case 'canaryreleasestageandapprovepromote': {
-          choice.index = 2;
-          choice.name = 'Canary Release and Stage with Approvals';
-          choice.description = 'A canary - stage - release - approval - promote continuous delivery pipeline strategy.';
-          break;
+        return 'fa-check-circle';
+      };
+      let buildStages = (value): Array<string> => {
+        let stages = [];
+        let n: number = 0;
+        for (let s of value.stages){
+          let stage = {
+            name: s,
+            index: n,
+            icon: determineIcon(s),
+            color: determineColor(s)
+          };
+          n++;
+          stages.push(stage);
+
         }
-        default: {
-          break;
-        }
-      }
+        return stages;
+      };
+      choice.model = {
+        environments: choiceSource.environments || [],
+        stages: buildStages(choiceSource)
+      };
+
+      choice.description = choiceSource.descriptionMarkdown;
+      choice.description = choice.description.replace(/\n\n/g, '\n');
+      choice.index = index ;
+      choice.name = choice.id;
+      choice.isDefault = index === defaultIndex;
+      choice.verticalLayout = true;
+      // suppress note
+      choice.note = null;
+      index ++;
     }
     // set the default for the first non validation step
     if ( this.isFirstNonValidationStep(context, execution) === true ) {
@@ -297,76 +394,102 @@ export class AppGeneratorConfigurationService {
       this.setFieldSelection( field );
     }
     this.sortFieldOptionsByIndex(field);
+    // suppress field note
+    field.display.note = null;
   }
 
   private augmentStackChoices( field: IField , context: string, execution: IAppGeneratorPair ) {
       field.display.label = 'Technology Stack';
       for ( let choice of <Array<IFieldChoice>>field.display.choices ) {
+        choice.hasIcon = false;
         switch ( choice.id.toLowerCase() ) {
           case 'configmaps - wildfly swarm': {
             choice.index = 10;
+            // choice.hasIcon=true;
+            choice.icon = 'icon-stack icon-stack-wildfly';
             choice.name = 'WildFly Swarm - ConfigMap';
             choice.description = 'Adds externalised environment configuration to WildFly Swarm - Basic';
             break;
           }
           case 'http api - wildfly swarm': {
             choice.index = 8;
+            // choice.hasIcon=true;
+            choice.icon = 'icon-stack icon-stack-wildfly';
             choice.name = 'WildFly Swarm - Basic';
             choice.description = 'Standalone Java EE application that exposes a simple HTTP endpoint';
             break;
           }
           case 'http crud - wildfly swarm': {
             choice.index = 9;
+            // choice.hasIcon=true;
+            choice.icon = 'icon-stack  icon-stack-wildfly';
             choice.name = 'WildFly Swarm - CRUD';
             choice.description = 'Adds Create, Update and Delete to WildFly Swarm - Basic';
             break;
           }
           case 'health checks - wildfly swarm': {
             choice.index = 11;
+            // choice.hasIcon=true;
+            choice.icon = 'icon-stack icon-stack-wildfly';
             choice.name = 'WildFly Swarm - Health Check';
             choice.description = 'Adds health checks to WildFly Swarm - Basic';
             break;
           }
           case 'spring boot - crud': {
             choice.index = 5;
+            // choice.hasIcon=true;
+            choice.icon = 'icon-stack icon-stack-spring';
             choice.name = 'Spring Boot - CRUD';
             choice.description = 'Adds Create, Update and Delete to Spring Boot - Basic';
             break;
           }
           case 'spring boot - configmap': {
             choice.index = 6;
+            // choice.hasIcon=true;
+            choice.icon = 'icon-stack icon-stack-spring';
             choice.name = 'Spring Boot - ConfigMap';
             choice.description = 'Adds externalised environment configuration to Spring Boot - Basic';
             break;
           }
           case 'spring boot - http': {
             choice.index = 4;
+            // choice.hasIcon=true;
+            choice.icon = 'icon-stack icon-stack-spring';
             choice.name = 'Spring Boot - Basic';
             choice.description = 'Standalone Spring application that exposes a simple HTTP endpoint';
             break;
           }
           case 'spring boot health check example': {
             choice.index = 7;
+            // choice.hasIcon=true;
+            choice.icon = 'icon-stack icon-stack-spring';
             choice.name = 'Spring Boot - Health Check';
             choice.description = 'Adds health checks to Spring Boot - Basic';
             break;
           }
           case 'vert.x - http & config map': {
             choice.index = 3;
+            // choice.hasIcon=true;
+            choice.icon = 'icon-stack icon-stack-vertx';
             choice.name = 'Vert.x - ConfigMap';
             choice.description = 'Adds externalised environment configuration to Vert.x - Basic';
             break;
           }
           case 'vert.x crud example using jdbc': {
             choice.index = 2;
+            // choice.hasIcon=true;
+            choice.icon = 'icon-stack icon-stack-vertx';
             choice.name = 'Vert.x - CRUD';
             choice.description = 'Adds Create, Update and Delete to Vert.x - Basic';
             break;
           }
           case 'vert.x http booster': {
             choice.index = 1;
+            // choice.hasIcon=true;
+            // choice.verticalLayout=true;
+            choice.icon = 'icon-stack icon-stack-vertx';
             choice.name = 'Vert.x - Basic';
-            choice.default = true;
+            choice.isDefault = true;
             choice.description = 'Standalone reactive application in Java that exposes a simple HTTP endpoint';
             break;
           }
@@ -394,7 +517,7 @@ export class AppGeneratorConfigurationService {
   private setFieldSelection(field: IField) {
     let choice: IFieldChoice = field.display.choices.find( (c) => c.selected === true );
     if (!choice) {
-      choice = field.display.choices.find( (c) => c.default === true );
+      choice = field.display.choices.find( (c) => c.isDefault === true );
     }
     field.value = choice.id;
     field.display.text = choice.name;
@@ -403,19 +526,18 @@ export class AppGeneratorConfigurationService {
   }
 
   private setFieldDefaults(field: IField) {
-    let choice: IFieldChoice = field.display.choices.find( (c) => c.default === true );
+    let choice: IFieldChoice = field.display.choices.find( (c) => c.isDefault === true );
     field.value = choice.id;
     field.display.text = choice.name;
     field.display.note = choice.description;
     field.display.choices.filter((o) => {
         // set everything to not selected, except for default
         o.selected = false;
-        if (o.default === true) {
+        if (o.isDefault === true) {
           o.selected = true;
         }
     });
   }
-
 
   private log: ILoggerDelegate = () => {};
 

@@ -3,7 +3,7 @@
     <div class="col-md-8 padding-left-none">
       <h1 class="getting-started-title">Getting started in OpenShift.io</h1>
       <p class="getting-started-subtitle">
-        Welcome to OpenShift.io! To get started you will need to create a username and connect
+        Welcome to OpenShift.io! To get started you will need to connect
         your GitHub and OpenShift.com accounts.
       </p>
       <p class="padding-bottom-15 padding-top-15">
@@ -16,6 +16,7 @@
   </div>
   <div class="row">
     <form role="form">
+<!--
       <div class="row">
         <div class="col-md-1">
           <h2 class="circle">1</h2>
@@ -26,7 +27,7 @@
             cannot be changed once you leave the Getting Started page.
           </p>
           <div class="form-group">
-            <div *ngIf="isUsernameDisabled; then showUsernameUpdated else showUsernameInput"></div>
+            <div *ngIf="isUsernameDisabled; then showUsernameUpdated; else showUsernameInput"></div>
             <ng-template #showUsernameUpdated>
               <div class="margin-bottom-15">
                 <label class="margin-right-10">Username:</label>
@@ -58,14 +59,15 @@
           </div>
         </div>
       </div>
+-->
       <div class="row">
         <div class="col-md-1">
-          <h2 class="circle">2</h2>
+          <h2 class="circle">1</h2>
         </div>
         <div class="col-md-11 padding-left-0">
           <h2>Connected accounts</h2>
           <p class="getting-started-subtitle">
-            Please connect your GitHub and OpenShift accounts to OpenShit.io.
+            Please connect your GitHub and OpenShift accounts to OpenShift.io.
           </p>
           <div *ngIf="gitHubLinked && openShiftLinked; then allLinked else allUnlinked"></div>
           <ng-template #allLinked>
@@ -119,11 +121,7 @@
         <div class="col-md-12">
           <div class="success-border">
             <h2 class="success-title">Success! You're ready to start in OpenShift.io.</h2>
-            <p>
-              Go to your <a [routerLink]="['/', '_home']">home</a> page to start coding, plan work, or do other things.
-              You can also fill out more information about you in your
-              <a [routerLink]="['/', '_home']">profile</a> so that teammates can identify you.
-            </p>
+            <p>You can now proceed to your home page to plan work, code, and deploy your applications.</p>
             <button class="btn btn-lg btn-primary"
                     (click)="routeToHome()">Get Started</button>
           </div>

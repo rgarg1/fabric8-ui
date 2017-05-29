@@ -11,7 +11,8 @@ import {
   GitHubRepoCommit,
   GitHubRepoDetails,
   GitHubRepoLastCommit,
-  GitHubRepoLicense
+  GitHubRepoLicense,
+  GitHubUser,
 } from './github';
 
 /**
@@ -59,6 +60,33 @@ export class GitHubService implements OnDestroy {
   }
 
   /**
+   * GitHub responses are cached due to rate limiting.
+   *
+   * Note: This was made public for the unit tests
+   *
+   * @param url
+   * @returns {undefined|Observable<any>}
+   */
+  getCache(url: string): Observable<any>{
+    return this.cache.get(url);
+  }
+
+  /**
+   * Get GitHub headers for authentified user
+   *
+   * Note: This was made public for the unit tests
+   *
+   * @returns {Headers}
+   */
+  getHeaders(): Observable<Headers> {
+    return this.authService.gitHubToken.map(token => {
+      let newHeaders = cloneDeep(GitHubService.HEADERS);
+      newHeaders.set('Authorization', `token ${token}`);
+      return newHeaders;
+    });
+  }
+
+  /**
    * Get GitHub repo status for given URL and commit
    *
    * @param cloneUrl The GitHub URL (e.g., https://github.com/almighty/almighty-core.git)
@@ -71,7 +99,7 @@ export class GitHubService implements OnDestroy {
     if (this.cache.has(url)) {
       return this.cache.get(url);
     } else {
-      let res = this.getHeaders(this.getUserName(fullName))
+      let res = this.getHeaders()
         .switchMap(newHeaders => this.http
           .get(url, { headers: newHeaders }))
         .map(response => {
@@ -98,7 +126,7 @@ export class GitHubService implements OnDestroy {
     if (this.cache.has(url)) {
       return this.cache.get(url);
     } else {
-      let res = this.getHeaders(this.getUserName(fullName))
+      let res = this.getHeaders()
         .switchMap(newHeaders => this.http
           .get(url, { headers: newHeaders }))
         .map(response => {
@@ -137,7 +165,7 @@ export class GitHubService implements OnDestroy {
     if (this.cache.has(url)) {
       return this.cache.get(url);
     } else {
-      let res = this.getHeaders(this.getUserName(fullName))
+      let res = this.getHeaders()
         .switchMap(newHeaders => this.http
           .get(url, { headers: newHeaders }))
         .map(response => {
@@ -164,7 +192,7 @@ export class GitHubService implements OnDestroy {
     if (this.cache.has(url)) {
       return this.cache.get(url);
     } else {
-      let res = this.getHeaders(this.getUserName(fullName))
+      let res = this.getHeaders()
         .switchMap(newHeaders => this.http
           .get(url, { headers: newHeaders }))
         .map(response => {
@@ -202,7 +230,7 @@ export class GitHubService implements OnDestroy {
     if (this.cache.has(url)) {
       return this.cache.get(url);
     } else {
-      let res = this.getHeaders(userName)
+      let res = this.getHeaders()
         .switchMap(newHeaders => this.http
           .get(url, { headers: newHeaders }))
         .map(response => {
@@ -218,21 +246,33 @@ export class GitHubService implements OnDestroy {
     }
   }
 
-  // Private
-
   /**
-   * Get GiHub headers for given user name
+   * Get authenticate GitHub user
    *
-   * @param userName
-   * @returns {Headers}
+   * @returns {Observable<GitHubUser>}
    */
-  private getHeaders(userName: string): Observable<Headers> {
-    return this.authService.gitHubToken.map(token => {
-      let newHeaders = cloneDeep(GitHubService.HEADERS);
-      newHeaders.set('Authorization', `token ${token}`);
-      return newHeaders;
-    });
+  getUser(): Observable<GitHubUser> {
+    let url = `${this.gitHubUrl}/user`;
+    if (this.cache.has(url)) {
+      return this.cache.get(url);
+    } else {
+      let res = this.getHeaders()
+        .switchMap(newHeaders => this.http
+          .get(url, { headers: newHeaders }))
+        .map(response => {
+          return response.json() as GitHubUser
+        })
+        .publishReplay(1)
+        .refCount()
+        .catch((error) => {
+          return this.handleError(error);
+        });
+      this.cache.set(url, res);
+      return res;
+    }
   }
+
+  // Private
 
   /**
    * Get GitHub full name from clone URL
@@ -245,17 +285,6 @@ export class GitHubService implements OnDestroy {
     let start = cloneUrl.indexOf(prefix);
     let end = cloneUrl.indexOf(".git");
     return (start !== -1 && end !== -1) ? cloneUrl.substring(prefix.length, end) : cloneUrl;
-  }
-
-  /**
-   * Get GitHub user name from repo full name
-   *
-   * @param fullName The GitHub repo full name (e.g., almighty/almighty-core)
-   * @returns {string}
-   */
-  private getUserName(fullName: string): string {
-    let index = fullName.indexOf("/");
-    return (index !== -1) ? fullName.substring(0, index) : fullName;
   }
 
   private handleError(error: any) {

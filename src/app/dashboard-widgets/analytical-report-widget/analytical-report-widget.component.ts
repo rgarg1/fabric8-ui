@@ -27,14 +27,17 @@ export class AnalyticalReportWidgetComponent implements OnInit, OnDestroy {
   buildConfigs: Observable<BuildConfigs>;
   buildConfigsCount: Observable<number>;
 
-  currentPipeline: BuildConfig;
+  currentPipeline: string;
   currentPipelineBuilds: Array<Build>;
+
+  pipelines: BuildConfigs;
 
   currentBuild: Build;
   stackAnalysisInformation: any = {
-    recommendationsLimit: 5,
+    recommendationsLimit: 7,
     showLoader: false,
-    recommendations: []
+    recommendations: [],
+    finishedTime: ''
   };
 
   _contextSubscription: Subscription;
@@ -53,6 +56,32 @@ export class AnalyticalReportWidgetComponent implements OnInit, OnDestroy {
     let bcs = this.pipelinesService.current
       .publish();
     this.buildConfigs = bcs;
+
+    this.buildConfigs.subscribe((data) => {
+      this.pipelines = data;
+    });
+    // Locate the first pipeline
+    this.buildConfigs
+    .filter(val => val.length > 0)
+    .first()
+    .subscribe(val => {
+      this.currentPipeline = val[0].id;
+      this.selectedPipeline();
+    });
+    let returnStatement: boolean = false;
+    /*this.buildConfigs = this.buildConfigs.map(buildConfs => buildConfs.filter((builds) => {
+      returnStatement = false;
+      if (builds.interestingBuilds && builds.interestingBuilds.length > 0) {
+        for (let build of builds.interestingBuilds) {
+          console.log('Here');
+          if (build.annotations['fabric8.io/bayesian.analysisUrl']) {
+            returnStatement = true;
+            break;
+          }
+        }
+      }
+      return returnStatement;
+    }));*/
     this.buildConfigsCount = bcs.map(buildConfigs => buildConfigs.length);
     bcs.connect();
   }
@@ -62,8 +91,16 @@ export class AnalyticalReportWidgetComponent implements OnInit, OnDestroy {
   }
 
   selectedPipeline(): void {
-    let pipeline: BuildConfig = this.currentPipeline;
-    this.currentPipelineBuilds = pipeline.builds;
+    let pipeline: BuildConfig = this.pipelines.find(val => val.id === this.currentPipeline);
+    this.currentPipelineBuilds = pipeline.interestingBuilds;
+    this.currentBuild = null;
+    for (let build of this.currentPipelineBuilds) {
+      if (build.annotations['fabric8.io/bayesian.analysisUrl']) {
+        this.currentBuild = build;
+        break;
+      }
+    }
+    this.selectedBuild();
   }
 
   showLoader(): void {
@@ -77,7 +114,7 @@ export class AnalyticalReportWidgetComponent implements OnInit, OnDestroy {
   selectedBuild(): void {
     let build: Build = this.currentBuild;
     this.showLoader();
-    if (build.annotations['fabric8.io/bayesian.analysisUrl']) {
+    if (build) {
       let url: string = build.annotations['fabric8.io/bayesian.analysisUrl'];
       this.stackAnalysisService
           .getStackAnalyses(url)
@@ -117,6 +154,19 @@ export class AnalyticalReportWidgetComponent implements OnInit, OnDestroy {
                 this.stackAnalysisInformation['recommendations'] = recommendations;
                 // Restrict the recommendations to a particular limit as specified in UX
                 this.stackAnalysisInformation['recommendations'].splice(this.stackAnalysisInformation['recommendationsLimit']);
+                let finishedTime: string = result.finishedTime;
+                if (finishedTime) {
+                  let date = null;
+                  try {
+                    date = new Date(finishedTime);
+                    let options: any = { year: 'numeric', month: 'long', day: 'numeric', time: 'numeric' };
+                    finishedTime = date.toLocaleDateString('en-US', options);
+                  } catch (error) {
+
+                  }
+                }
+                this.stackAnalysisInformation['finishedTime'] = 'Report Completed ' + finishedTime;
+
               });
             } else {
               this.stackAnalysisInformation['recommendations'].length = 0;

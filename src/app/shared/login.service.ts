@@ -43,10 +43,22 @@ export class LoginService {
     this.broadcaster.on('authenticationError').subscribe(() => {
       this.authService.logout();
     });
+    this.broadcaster.on('noFederatedToken').subscribe(() => {
+      // Don't log out first time users from getting started as tokens may not exist
+      if (this.router.url !== "/" && this.router.url.indexOf("_gettingstarted") === -1
+          && this.router.url.indexOf("_update") === -1) {
+        this.authService.logout();
+      }
+    });
   }
 
   redirectToAuth() {
-    window.location.href = this.authUrl;
+    var authUrl = this.authUrl;
+    if (authUrl.indexOf('?') < 0) {
+      // lets ensure there's a redirect parameter to avoid WIT barfing
+      authUrl += "?redirect=" + window.location.href;
+    }
+    window.location.href = authUrl;
   }
 
   public redirectAfterLogin() {

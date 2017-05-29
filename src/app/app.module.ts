@@ -77,7 +77,7 @@ import { AnalyticService }               from './shared/analytics.service';
 import { ApiLocatorService }             from './shared/api-locator.service';
 import { AuthGuard }                     from './shared/auth-guard.service';
 import { authApiUrlProvider }            from './shared/auth-api.provider';
-import { fabric8UIConfigProvider }       from './shared/config/fabric8-ui-config.service';
+import {fabric8UIConfigProvider, syncFabric8UIConfigProvider}       from './shared/config/fabric8-ui-config.service';
 import { AuthUserResolve }               from './shared/common.resolver';
 import { ContextService }                from './shared/context.service';
 import { ContextCurrentUserGuard }       from './shared/context-current-user-guard.service';
@@ -97,6 +97,7 @@ import { SpaceNamespaceService }         from './shared/runtime-console/space-na
 import { SpacesService }                 from './shared/spaces.service';
 import { ssoApiUrlProvider }             from './shared/sso-api.provider';
 import { witApiUrlProvider }             from './shared/wit-api.provider';
+import { realmProvider }                 from './shared/realm-token.provider';
 
 // Component Services
 import { ConfigStore }               from './base/config.store';
@@ -184,6 +185,7 @@ export type StoreType = {
       useClass: Fabric8UIHttpService
     },
     fabric8UIConfigProvider,
+    syncFabric8UIConfigProvider,
     {
       provide: OnLogin,
       useClass: Fabric8UIOnLogin
@@ -215,7 +217,8 @@ export type StoreType = {
     ssoApiUrlProvider,
     ToggleService,
     UserService,
-    witApiUrlProvider
+    witApiUrlProvider,
+    realmProvider
   ],
   schemas: [],
   bootstrap: [AppComponent]

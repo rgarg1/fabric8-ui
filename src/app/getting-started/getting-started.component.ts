@@ -22,7 +22,7 @@ export class GettingStartedComponent implements OnDestroy, OnInit {
   gitHubLinked: boolean = false;
   loggedInUser: User;
   openShiftLinked: boolean = false;
-  registrationCompleted: boolean = false;
+  registrationCompleted: boolean = true;
   showGettingStarted: boolean = false;
   subscriptions: Subscription[] = [];
   username: string;
@@ -55,6 +55,11 @@ export class GettingStartedComponent implements OnDestroy, OnInit {
         this.loggedInUser = user;
         this.username = this.loggedInUser.attributes.username;
         this.registrationCompleted = (user as ExtUser).attributes.registrationCompleted;
+
+        // Todo: Remove after summit?
+        if (!this.registrationCompleted) {
+          this.saveUsername();
+        }
       })
       .switchMap(() => this.auth.gitHubToken)
       .map(token => {
@@ -73,8 +78,6 @@ export class GettingStartedComponent implements OnDestroy, OnInit {
     setTimeout(() => {
       if (this.isUserGettingStarted()) {
         this.showGettingStarted = true;
-      } else {
-        this.routeToHomeIfCompleted();
       }
     }, 1000);
   }
@@ -144,12 +147,13 @@ export class GettingStartedComponent implements OnDestroy, OnInit {
     this.subscriptions.push(this.gettingStartedService.update(profile).subscribe(user => {
       this.registrationCompleted = (user as ExtUser).attributes.registrationCompleted;
       this.loggedInUser = user;
-      if (this.username === user.attributes.username) {
-        this.notifications.message({
-          message: `Username updated!`,
-          type: NotificationType.SUCCESS
-        } as Notification);
-      }
+      //Since we don't allow the user to change their username then we shouldn't tell them they did
+      // if (this.username === user.attributes.username) {
+      //   this.notifications.message({
+      //     message: `Username updated!`,
+      //     type: NotificationType.SUCCESS
+      //   } as Notification);
+      // }
     }, error => {
       this.username = this.loggedInUser.attributes.username;
       if (error.status === 403) {

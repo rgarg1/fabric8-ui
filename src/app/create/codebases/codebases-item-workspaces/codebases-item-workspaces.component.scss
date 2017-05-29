@@ -1,27 +1,17 @@
 @import '../../../../assets/stylesheets/base';
 
-codebases-item-workspaces {
-  display: flex;
-}
+codebases-item-workspaces { display: flex; }
 
 .busy-indicator {
+  position: relative;
   display: flex;
   height: auto;
   margin-left: 10px;
-  position: relative;
   vertical-align: center;
   width: 25px;
   > div {
-    margin:auto;
-    padding:0;
-  }
-}
-
-.workspace-info {
-  margin-right: 5px;
-  min-width: 250px;
-  i {
-    pointer-events: auto;
+    margin: auto;
+    padding: 0;
   }
 }
 
